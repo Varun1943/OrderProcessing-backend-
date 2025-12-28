@@ -22,6 +22,8 @@ public class Product {
     private Long id;
     @NotBlank(message = "Name required")
     private String name;
+    @Min(value = 0, message = "Price must be >= 0")
+    private Double price;   
     @NotNull @Min(value = 0, message = "Stock cannot be negative")
     private Integer stock;
 

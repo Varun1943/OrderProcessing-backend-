@@ -1,0 +1,148 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8"/>
+  <title>Order Processing Dashboard</title>
+  <style>
+    body { font-family: Arial, sans-serif; margin: 40px; background: #fafafa; }
+    h1 { margin-bottom: 20px; }
+    .section { background: white; padding: 20px; margin-bottom: 25px; border-radius: 8px; box-shadow: 0 2px 6px rgba(0,0,0,0.1); }
+    input, button, select { padding: 8px; margin: 4px; border-radius: 5px; border: 1px solid #ccc; }
+    button { cursor: pointer; background: #007bff; color: white; border: none; }
+    button:hover { background: #005fcc; }
+    table { border-collapse: collapse; width: 100%; margin-top: 20px; }
+    th, td { border: 1px solid #ddd; padding: 10px; text-align: left; }
+    #logs { background: #111; color: #0f0; padding: 15px; font-family: monospace; height: 220px; overflow: auto; white-space: pre-line; border-radius: 8px;}
+    .logTitle { font-weight: bold; color: #666; margin-top:10px;}
+  </style>
+</head>
+<body>
+
+<h1>Order Processing Dashboard</h1>
+
+<div class="section">
+  <h2>Add Product</h2>
+  <input id="name" placeholder="Name"/>
+  <input id="price" type="number" placeholder="Price"/>
+  <input id="qty" type="number" placeholder="Qty"/>
+  <button onclick="addProduct()">Add Product</button>
+</div>
+
+<div class="section">
+  <h2>Products</h2>
+  <button onclick="loadProducts()">Refresh List</button>
+  <table id="productTable">
+    <thead><tr><th>ID</th><th>Name</th><th>Price</th><th>Qty</th><th>Actions</th></tr></thead>
+    <tbody></tbody>
+  </table>
+</div>
+
+<div class="section">
+  <h2>Create Order</h2>
+  <select id="orderProduct"></select>
+  <input id="orderQty" type="number" placeholder="Order Qty"/>
+  <button onclick="placeOrder()">Place Order</button>
+</div>
+
+<div class="section">
+  <div class="logTitle">LOGS</div>
+  <div id="logs"></div>
+</div>
+
+<script>
+  const api = window.location.origin;
+
+
+  function log(msg) {
+    const box = document.getElementById("logs");
+    box.innerText += msg + "\n";
+    box.scrollTop = box.scrollHeight;
+  }
+
+  async function safeFetch(url, opts={}) {
+    const res = await fetch(url, opts);
+    let data;
+    try { data = await res.json(); }
+    catch { data = await res.text(); }
+    return { ok: res.ok, data };
+  }
+
+  async function addProduct() {
+   const body = {
+    name: document.getElementById("name").value,
+    price: Number(document.getElementById("price").value),
+    stock: Number(document.getElementById("qty").value)
+  };
+
+  console.log("DEBUG payload:", body);
+
+  const res = await fetch(api + "/products", {
+    method: "POST",
+    headers: {"Content-Type": "application/json"},
+    body: JSON.stringify(body)
+  });
+
+  let data;
+  try { data = await res.json(); }
+  catch { data = await res.text(); }
+
+  if(!res.ok) return log("ERROR ADDING PRODUCT → " + data, true);
+
+  log("PRODUCT ADDED → " + JSON.stringify(data));
+  loadProducts();
+}
+
+
+  // ------------ LOAD PRODUCTS -------------
+  async function loadProducts() {
+    const res = await safeFetch(api + "/products");
+    if(!res.ok){ log("ERROR LOADING PRODUCTS → " + res.data); return; }
+
+    const tbody = document.querySelector("#productTable tbody");
+    const select = document.getElementById("orderProduct");
+    tbody.innerHTML = "";
+    select.innerHTML = "";
+
+    res.data.forEach(p => {
+      tbody.innerHTML += `
+        <tr>
+          <td>${p.id}</td><td>${p.name}</td><td>${p.price}</td><td>${p.stock}</td>
+
+          <td><button onclick="deleteProduct(${p.id})">Delete</button></td>
+        </tr>`;
+      select.innerHTML += `<option value="${p.id}">${p.name} (Qty: ${p.quantity})</option>`;
+    });
+
+    log("PRODUCT LIST → " + JSON.stringify(res.data));
+  }
+
+  // ------------ DELETE PRODUCT -------------
+  async function deleteProduct(id) {
+    const res = await safeFetch(api + "/products/" + id, {method:"DELETE"});
+    if(res.ok) log("PRODUCT DELETED → ID " + id);
+    else log("DELETE ERROR → " + res.data);
+    loadProducts();
+  }
+
+  // ------------ PLACE ORDER -------------
+  async function placeOrder() {
+    const pid = document.getElementById("orderProduct").value;
+    const qty = Number(document.getElementById("orderQty").value);
+
+    const res = await safeFetch(api + "/orders", {
+      method:"POST",
+      headers:{"Content-Type":"application/json"},
+      body: JSON.stringify({productId: pid, quantity: qty})
+    });
+
+    if(res.ok) log("ORDER PLACED → " + JSON.stringify(res.data));
+    else log("ORDER ERROR → " + res.data);
+
+    loadProducts();
+  }
+
+  loadProducts();
+</script>
+
+</body>
+</html>
