@@ -7,6 +7,7 @@ import com.microservice.OrderProceessing.Services.ProductService;
 import org.springframework.stereotype.Service;
 
 import java.util.List;
+import java.util.Optional;
 
 @Service
 public class ProductServiceImpl implements ProductService {
@@ -17,8 +18,18 @@ public class ProductServiceImpl implements ProductService {
     this.repo = repo;
     }
     @Override
-    public Product create(Product product) {
-    return repo.save(product);
+    public Product create(Product p) {
+        
+        Optional<Product> existing = repo.findByNameIgnoreCase(p.getName());
+
+        if (existing.isPresent()) {
+            Product prod = existing.get();
+            prod.setStock(prod.getStock() + p.getStock());  
+            prod.setPrice(p.getPrice());                    
+            return repo.save(prod);
+        }
+
+        return repo.save(p);
     }
     @Override
     public List<Product> getAll() {
